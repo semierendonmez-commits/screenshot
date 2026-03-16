@@ -1,10 +1,9 @@
 -- screenshot
--- v2.0.0 @semi
+-- v3.0.0 @semi
 --
 -- screen capture mod
 -- K1+K2+K3: manual capture
--- auto-capture: timed intervals
--- params menu integrated
+-- auto-capture via params
 
 local mod = require 'core/mods'
 
@@ -12,16 +11,12 @@ local state = {
   k1 = false, k2 = false,
   flash = 0,
   count = 0,
-  dir = _path.data .. "screenshots/",
-  -- auto capture
-  auto_on = false,
-  auto_interval = 30,  -- seconds
   auto_clock = nil,
-  -- settings
-  enabled = true,
+  auto_secs = 0,
+  dir = _path.data .. "screenshots/",
 }
 
-local INTERVAL_OPTIONS = {"OFF", "10s", "20s", "30s", "1min", "5min"}
+local INTERVAL_OPTS = {"OFF", "10s", "20s", "30s", "1min", "5min"}
 local INTERVAL_SECS = {0, 10, 20, 30, 60, 300}
 
 local function ensure_dir()
@@ -41,40 +36,33 @@ end
 local function capture()
   ensure_dir()
   local path = gen_filename()
-  if _norns and _norns.screen_export_png then
+  -- norns screen capture API
+  if _norns.screen_export_png then
     _norns.screen_export_png(path)
     print("screenshot: " .. path)
     state.flash = 3
-  else
-    print("screenshot: export not available")
-  end
-end
-
--- auto-capture clock
-local function start_auto()
-  if state.auto_clock then
-    pcall(function() clock.cancel(state.auto_clock) end)
-  end
-  if state.auto_interval > 0 then
-    state.auto_on = true
-    state.auto_clock = clock.run(function()
-      while true do
-        clock.sleep(state.auto_interval)
-        -- skip if menu is showing
-        local menu_active = _menu and _menu.mode
-        if not menu_active then capture() end
-      end
-    end)
-    print("screenshot: auto every " .. state.auto_interval .. "s")
   end
 end
 
 local function stop_auto()
-  state.auto_on = false
   if state.auto_clock then
     pcall(function() clock.cancel(state.auto_clock) end)
     state.auto_clock = nil
   end
+end
+
+local function start_auto(secs)
+  stop_auto()
+  if secs <= 0 then return end
+  state.auto_secs = secs
+  state.auto_clock = clock.run(function()
+    while true do
+      clock.sleep(secs)
+      local menu_active = _menu and _menu.mode
+      if not menu_active then capture() end
+    end
+  end)
+  print("screenshot: auto every " .. secs .. "s")
 end
 
 -- ============ PARAMS ============
@@ -82,17 +70,13 @@ end
 local function add_params()
   params:add_separator("SCREENSHOT")
 
-  params:add_trigger("ss_capture", "take screenshot")
-  params:set_action("ss_capture", function() capture() end)
+  params:add_trigger("ss_take", "> take screenshot")
+  params:set_action("ss_take", function() capture() end)
 
-  params:add_option("ss_auto", "auto capture", INTERVAL_OPTIONS, 1)
+  params:add_option("ss_auto", "auto capture", INTERVAL_OPTS, 1)
   params:set_action("ss_auto", function(v)
-    state.auto_interval = INTERVAL_SECS[v]
-    if v == 1 then
-      stop_auto()
-    else
-      start_auto()
-    end
+    local secs = INTERVAL_SECS[v] or 0
+    if secs > 0 then start_auto(secs) else stop_auto() end
   end)
 end
 
@@ -101,18 +85,15 @@ end
 mod.hook.register("script_post_init", "screenshot", function()
   add_params()
 
-  -- wrap key handler for K1+K2+K3
+  -- wrap key for K1+K2+K3
   local script_key = key
   key = function(n, z)
     if n == 1 then state.k1 = (z == 1) end
     if n == 2 then state.k2 = (z == 1) end
-
-    -- K1+K2+K3: capture
     if state.k1 and state.k2 and n == 3 and z == 1 then
       capture()
       return
     end
-
     if script_key then script_key(n, z) end
   end
 
@@ -122,8 +103,7 @@ mod.hook.register("script_post_init", "screenshot", function()
     if script_redraw then script_redraw() end
     if state.flash > 0 then
       screen.level(math.floor(state.flash * 4))
-      screen.rect(0, 0, 128, 64)
-      screen.fill()
+      screen.rect(0, 0, 128, 64); screen.fill()
       screen.update()
       state.flash = state.flash - 1
     end
@@ -155,17 +135,13 @@ end
 m.redraw = function()
   screen.clear()
   screen.font_face(1); screen.font_size(8)
-  screen.level(10)
-  screen.move(64, 16); screen.text_center("screenshot")
-  screen.level(6)
-  screen.move(64, 28); screen.text_center("K1+K2+K3: capture")
+  screen.level(10); screen.move(64, 16); screen.text_center("screenshot")
+  screen.level(5); screen.move(64, 28); screen.text_center("K1+K2+K3: capture")
   screen.move(64, 38); screen.text_center("saved: " .. state.count)
-  screen.level(4)
-  screen.move(64, 48)
-  local auto_txt = state.auto_on and ("auto: " .. state.auto_interval .. "s") or "auto: off"
-  screen.text_center(auto_txt)
-  screen.level(2)
-  screen.move(64, 60); screen.text_center("K3:capture E3:auto")
+  screen.level(4); screen.move(64, 48)
+  local atxt = state.auto_secs > 0 and ("auto: " .. state.auto_secs .. "s") or "auto: off"
+  screen.text_center(atxt)
+  screen.level(2); screen.move(64, 60); screen.text_center("K3:now  E3:auto")
   screen.update()
 end
 
