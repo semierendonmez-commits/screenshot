@@ -1,3 +1,4 @@
+
 ## screenshot (mod)
 
 capture the norns screen as PNG.
@@ -13,4 +14,3 @@ after install: SYSTEM > MODS > screenshot > enable > SYSTEM > RESTART
 the mod wraps your script's key handler transparently. no script modifications needed. works with every script. screenshots are accessible via SMB/SFTP at `dust/data/screenshots/`.
 
 mod menu (SYSTEM > MODS > screenshot): K3 for test capture, shows capture count.
-
