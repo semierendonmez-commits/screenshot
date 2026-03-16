@@ -5,7 +5,7 @@ capture the norns screen as PNG.
 **K1+K2+K3** — take screenshot. white flash confirms. files saved to `dust/data/screenshots/` with timestamp, script name, and sequence number.
 
 ```
-;install https://github.com/yourusername/screenshot
+;install https://github.com/semierendonmez-commits/screenshot
 ```
 
 after install: SYSTEM > MODS > screenshot > enable > SYSTEM > RESTART
